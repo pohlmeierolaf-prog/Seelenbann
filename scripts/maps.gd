@@ -37,11 +37,11 @@ const MAPS := {
 			Vector2i(14, 0): {"map": "friedhof", "pos": Vector2i(14, 16), "dir": Vector2i.UP},
 			Vector2i(15, 0): {"map": "friedhof", "pos": Vector2i(15, 16), "dir": Vector2i.UP},
 		},
+		"actions": {Vector2i(24, 14): "heal"},
 		"signs": {
 			Vector2i(3, 7): ["Rabenstein.", "Letzte Zuflucht vor dem Friedhof der Vergessenen."],
 			Vector2i(7, 4): ["Die Tür ist verriegelt.", "Von drinnen hört man leises Beten."],
 			Vector2i(23, 4): ["Ein Schild: »Morwen – Seelensteine & Tränke«", "Heute geschlossen."],
-			Vector2i(24, 14): ["Dein Haus.", "Mutter sagte: »Geh nie ohne Seelenstein auf den Friedhof.«"],
 			Vector2i(14, 8): ["Ein alter Brunnen.", "Tief unten flüstert etwas deinen Namen..."],
 			Vector2i(15, 8): ["Ein alter Brunnen.", "Tief unten flüstert etwas deinen Namen..."],
 			Vector2i(14, 9): ["Das Wasser ist schwarz wie Tinte."],

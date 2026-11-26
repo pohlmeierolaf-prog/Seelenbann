@@ -7,4 +7,4 @@ Ein düsteres 2D-Rollenspiel: Bezwinge die Kreaturen des Friedhofs, banne ihre S
 
 **Steuerung:** Pfeiltasten/WASD + Leertaste (Tastatur) oder Steuerkreuz + A-Taste (Touch).
 
-Stand: Meilenstein 1 – Dorf Rabenstein und Friedhof begehbar, Kämpfe folgen.
+Stand: Meilenstein 2 – Rundenkämpfe gegen wilde Kreaturen im Grabmoos des Friedhofs. Bannen folgt.

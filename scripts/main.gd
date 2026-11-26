@@ -9,12 +9,17 @@ const INPUTS := {
 	"interact": [KEY_SPACE, KEY_ENTER, KEY_E],
 	"back": [KEY_ESCAPE, KEY_X, KEY_BACKSPACE],
 }
-const ENCOUNTER_CHANCE := 0.08
+const ENCOUNTER_CHANCE := 0.1
+const HOME := {"map": "rabenstein", "pos": Vector2i(24, 15), "dir": Vector2i.DOWN}
 
 var world: WorldMap
 var player: Player
 var camera: Camera2D
 var dialog: DialogBox
+var battle: Battle
+var touch: TouchControls
+var map_id := ""
+var party: Array = [Dex.make("knochenwelpe", 6)]
 var fade: ColorRect
 var banner: Label
 var title: Control
@@ -94,7 +99,10 @@ void fragment() {
 	banner.modulate.a = 0.0
 	_layer(6).add_child(banner)
 
-	_layer(5).add_child(TouchControls.new())
+	touch = TouchControls.new()
+	_layer(5).add_child(touch)
+	battle = Battle.new()
+	add_child(battle)
 
 	dialog = DialogBox.new()
 	add_child(dialog)
@@ -163,11 +171,16 @@ func _start_game() -> void:
 	tw.tween_property(title, "modulate:a", 0.0, 0.6)
 	await tw.finished
 	title.visible = false
-	player.frozen = false
 	_show_banner()
+	if OS.has_feature("web") and str(JavaScriptBridge.eval("location.hash")) == "#kampf":
+		map_id = "friedhof"
+		_start_battle()
+		return
+	await _say(["Mutter hat dir ihren alten Knochenwelpen anvertraut.", "Im Grabmoos des Friedhofs lauern wilde Kreaturen. Zu Hause kannst du dich ausruhen."])
 
 
 func _load_map(id: String, pos: Vector2i, dir: Vector2i) -> void:
+	map_id = id
 	world.load_map(id)
 	player.place(pos, dir)
 	camera.limit_left = 0
@@ -193,7 +206,13 @@ func _say(pages) -> void:
 
 
 func _interact() -> void:
-	var text = world.get_sign(player.cell + player.facing)
+	var target := player.cell + player.facing
+	if world.data.get("actions", {}).get(target, "") == "heal":
+		for mon in party:
+			mon["hp"] = mon["max_hp"]
+		_say(["Du ruhst dich zu Hause aus.", "%s ist wieder bei voller Kraft." % Dex.name_of(party[0])])
+		return
+	var text = world.get_sign(target)
 	if text != null:
 		_say(text)
 
@@ -203,8 +222,36 @@ func _on_player_moved(cell: Vector2i) -> void:
 	if warp != null:
 		_warp(warp)
 	elif world.encounters and world.tile_at(cell) == "\"" and randf() < ENCOUNTER_CHANCE:
-		# Platzhalter bis Meilenstein 2 (Kampfsystem)
-		_say(["Etwas regt sich im Grabmoos...", "(Kämpfe kommen in Meilenstein 2.)"])
+		_start_battle()
+
+
+func _start_battle() -> void:
+	busy = true
+	player.frozen = true
+	touch.visible = false
+	var tw := create_tween()
+	for i in 2:
+		tw.tween_property(fade, "modulate:a", 0.8, 0.12)
+		tw.tween_property(fade, "modulate:a", 0.0, 0.12)
+	tw.tween_property(fade, "modulate:a", 1.0, 0.2)
+	await tw.finished
+	battle.start(party[0], Dex.random_encounter(map_id))
+	fade.modulate.a = 0.0
+	var result: String = await battle.finished
+	touch.visible = DisplayServer.is_touchscreen_available()
+	if result == "lose":
+		for mon in party:
+			mon["hp"] = mon["max_hp"]
+		fade.modulate.a = 1.0
+		_load_map(HOME["map"], HOME["pos"], HOME["dir"])
+		tw = create_tween()
+		tw.tween_property(fade, "modulate:a", 0.0, 0.5)
+		await tw.finished
+		busy = false
+		await _say("Du erwachst zu Hause. %s ist geheilt." % Dex.name_of(party[0]))
+		return
+	busy = false
+	player.frozen = false
 
 
 func _warp(w: Dictionary) -> void:

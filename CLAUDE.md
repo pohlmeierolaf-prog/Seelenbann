@@ -14,8 +14,8 @@ Eigenes Spiel – keine Namen, Figuren, Grafiken oder Welten aus bestehenden Spi
 
 ## Meilensteine
 1. ✅ Gerüst, Dorf Rabenstein + Friedhof, Laufen, Touch-Steuerung, Schilder/Dialoge, Web-Deploy
-2. Rundenkampf (Zufallsbegegnungen im Grabmoos `"`)
-3. Bannen mit Seelensteinen, Leveln, Entwicklung, Team
+2. ✅ Rundenkampf (Zufallsbegegnungen im Grabmoos `"`), Heilen an der Haustür, Niederlage → zurück nach Hause
+3. Bannen mit Seelensteinen (Menüpunkt existiert schon), Leveln (XP wird bereits in `mon.xp` gesammelt), Entwicklung (`evolve` in Dex), Team, Starterwahl
 4. Ausrüstung & Beute, Speichern
 5. Gruft mit Boss, Feinschliff
 
@@ -23,9 +23,12 @@ Eigenes Spiel – keine Namen, Figuren, Grafiken oder Welten aus bestehenden Spi
 - Ein Meilenstein pro Sitzung, danach committen und stoppen.
 - Grafik nur per Code (`_draw`), keine Asset-Pipelines. Inhalte (Karten, später Kreaturen/Attacken) als Daten in `scripts/*.gd`.
 - Prüfen: `godot --headless --import`, dann Web-Export + kurzer Playwright-Test – sparsam mit Screenshots.
+  Test-Abkürzung: `index.html#kampf` startet nach dem Titel direkt einen Kampf.
 
 ## Aufbau
 - `scripts/main.gd` – baut Szene, Eingaben, UI, Kartenwechsel
 - `scripts/maps.gd` – Karten als Text (Legende im Kopf), Schilder, Übergänge
 - `scripts/world_map.gd` – Zeichnen + Begehbarkeit · `scripts/player.gd` – Held
 - `scripts/touch_controls.gd`, `scripts/dialog_box.gd`
+- `scripts/dex.gd` – Elemente, Kreaturen, Attacken, Begegnungstabellen (Kreatur = Dictionary)
+- `scripts/battle.gd` – Kampfablauf + Kampfbildschirm · `scripts/creature_art.gd` – Kreaturen per Code gezeichnet
