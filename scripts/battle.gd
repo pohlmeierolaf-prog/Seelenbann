@@ -14,7 +14,36 @@ class CreatureView extends Node2D:
 	func _draw() -> void:
 		CreatureArt.draw(self, species, t)
 
+## Geschoss + Einschlag in Elementfarbe
+class FxView extends Node2D:
+	var from := Vector2.ZERO
+	var to := Vector2.ZERO
+	var color := Color.WHITE
+	var fly := 0.0   # 0..1 Flug
+	var burst := 0.0 # 0..1 Einschlag
+	func _process(_d: float) -> void:
+		queue_redraw()
+	func _draw() -> void:
+		if fly > 0.0 and fly < 1.0:
+			var p := from.lerp(to, fly) + Vector2(0, -sin(fly * PI) * 18)
+			for i in 4:
+				var tail := from.lerp(to, maxf(0.0, fly - i * 0.05)) + Vector2(0, -sin(maxf(0.0, fly - i * 0.05) * PI) * 18)
+				draw_circle(tail, 4.0 - i, Color(color, 0.5 - i * 0.1))
+			draw_circle(p, 7, Color(color, 0.25))
+			draw_circle(p, 4, color)
+			draw_circle(p, 2, Color(1, 1, 1, 0.8))
+		if burst > 0.0 and burst < 1.0:
+			var a := 1.0 - burst
+			draw_circle(to, 6 + burst * 22, Color(color, 0.25 * a))
+			draw_arc(to, 4 + burst * 26, 0, TAU, 24, Color(color, a), 2.0)
+			for i in 8:
+				var ang := TAU * i / 8.0 + 0.4
+				var d := Vector2(cos(ang), sin(ang))
+				draw_line(to + d * (6 + burst * 14), to + d * (10 + burst * 24), Color(color.lightened(0.3), a), 2.0)
+
 var stage: Control
+var fx: FxView
+var _say_token := 0
 var mine: Dictionary
 var foe: Dictionary
 var view_mine: CreatureView
@@ -41,6 +70,8 @@ func _ready() -> void:
 	view_mine = CreatureView.new()
 	stage.add_child(view_foe)
 	stage.add_child(view_mine)
+	fx = FxView.new()
+	stage.add_child(fx)
 
 	msg_label = Label.new()
 	msg_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -155,13 +186,25 @@ func start(my_mon: Dictionary, wild: Dictionary) -> void:
 	finished.emit(result)
 
 
-func _say(text: String) -> void:
+## Text zeigen. auto > 0: schaltet nach so vielen Sekunden selbst weiter (Tippen überspringt).
+func _say(text: String, auto := 0.0) -> void:
+	_show_text(text)
+	_waiting = true
+	_shown_at = Time.get_ticks_msec()
+	if auto > 0.0:
+		_say_token += 1
+		var token := _say_token
+		get_tree().create_timer(auto).timeout.connect(func():
+			if _waiting and token == _say_token:
+				_waiting = false
+				_advance.emit())
+	await _advance
+
+
+func _show_text(text: String) -> void:
 	menu.visible = false
 	msg_label.size.x = stage.size.x - 28
 	msg_label.text = text
-	_waiting = true
-	_shown_at = Time.get_ticks_msec()
-	await _advance
 
 
 func _button(text: String, value: String, col := Color("ddd2c4")) -> void:
@@ -218,7 +261,7 @@ func _round() -> String:
 			if randf() < 0.5 + 0.5 * mine["spd"] / float(mine["spd"] + foe["spd"]):
 				await _say("Du entkommst in die Nebel.")
 				return "flee"
-			await _say("Die Flucht misslingt!")
+			await _say("Die Flucht misslingt!", AUTO)
 			await _use_move(foe, foe["moves"].pick_random(), mine, "foe", "mine")
 			return await _check_end()
 		"fight":
@@ -271,16 +314,20 @@ func _fade(v: Node2D) -> void:
 func _use_move(att: Dictionary, move_id: String, def: Dictionary, ak: String, dk: String) -> void:
 	var mv: Dictionary = Dex.MOVES[move_id]
 	var prefix := "" if ak == "mine" else "Der wilde "
-	await _say("%s%s setzt %s ein!" % [prefix, Dex.name_of(att), mv["name"]])
-	if randi() % 100 >= mv["acc"]:
-		await _say("Die Attacke verfehlt ihr Ziel.")
-		return
+	_show_text("%s%s setzt %s ein!" % [prefix, Dex.name_of(att), mv["name"]])
+	var color: Color = Dex.COLORS[mv["element"]]
 	if mv.get("effect", "") == "atk_up":
+		await _pulse(ak, color)
 		if stages[ak] >= 2:
-			await _say("Die Wut kann nicht weiter steigen.")
+			await _say("Die Wut kann nicht weiter steigen.", AUTO)
 		else:
 			stages[ak] += 1
-			await _say("Der Angriff von %s steigt!" % Dex.name_of(att))
+			await _say("Der Angriff von %s steigt!" % Dex.name_of(att), AUTO)
+		return
+	var hit: bool = randi() % 100 < mv["acc"]
+	await _attack_anim(ak, dk, color, hit)
+	if not hit:
+		await _say("Die Attacke verfehlt ihr Ziel.", AUTO)
 		return
 	var eff := Dex.effectiveness(mv["element"], Dex.element_of(def))
 	var stab := 1.5 if mv["element"] == Dex.element_of(att) else 1.0
@@ -290,13 +337,56 @@ func _use_move(att: Dictionary, move_id: String, def: Dictionary, ak: String, dk
 	def["hp"] = maxi(0, def["hp"] - dmg)
 	await _hit(dk, def["hp"])
 	if eff > 1.0:
-		await _say("Sehr wirkungsvoll!")
+		await _say("Sehr wirkungsvoll!", AUTO)
 	elif eff < 1.0:
-		await _say("Kaum Wirkung...")
+		await _say("Kaum Wirkung...", AUTO)
 	if mv.get("effect", "") == "drain" and att["hp"] > 0:
 		att["hp"] = mini(att["max_hp"], att["hp"] + maxi(1, dmg / 2))
 		await _hit(ak, att["hp"])
-		await _say("%s saugt Lebenskraft ab." % Dex.name_of(att))
+		await _say("%s saugt Lebenskraft ab." % Dex.name_of(att), AUTO)
+
+
+const AUTO := 0.9
+
+
+func _view(key: String) -> CreatureView:
+	return view_mine if key == "mine" else view_foe
+
+
+## Anspringen, Geschoss fliegt, Einschlag am Ziel.
+func _attack_anim(ak: String, dk: String, color: Color, hit: bool) -> void:
+	var a := _view(ak)
+	var d := _view(dk)
+	var home := a.position
+	var dir := (d.position - home).normalized()
+	var tw := create_tween()
+	tw.tween_property(a, "position", home + dir * 16, 0.12).set_ease(Tween.EASE_OUT)
+	tw.tween_property(a, "position", home, 0.18)
+	await tw.finished
+	fx.color = color
+	fx.from = home + Vector2(0, -12)
+	fx.to = d.position + Vector2(0, -8) + (Vector2(randf_range(30, 40), -20) if not hit else Vector2.ZERO)
+	fx.burst = 0.0
+	tw = create_tween()
+	tw.tween_property(fx, "fly", 1.0, 0.35).from(0.0)
+	if hit:
+		tw.tween_property(fx, "burst", 1.0, 0.3).from(0.0)
+	await tw.finished
+	fx.fly = 0.0
+	fx.burst = 0.0
+
+
+## Statusattacke: Kreatur pulsiert in Elementfarbe.
+func _pulse(key: String, color: Color) -> void:
+	var v := _view(key)
+	var s := v.scale
+	var tw := create_tween()
+	for i in 2:
+		tw.tween_property(v, "scale", s * 1.15, 0.15)
+		tw.parallel().tween_property(v, "modulate", color.lightened(0.2), 0.15)
+		tw.tween_property(v, "scale", s, 0.15)
+		tw.parallel().tween_property(v, "modulate", Color.WHITE, 0.15)
+	await tw.finished
 
 
 func _hit(key: String, new_hp: int) -> void:
