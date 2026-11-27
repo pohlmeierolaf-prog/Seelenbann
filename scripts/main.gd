@@ -153,6 +153,11 @@ func _input(event: InputEvent) -> void:
 	if in_title and ((event is InputEventScreenTouch and event.pressed) or (event is InputEventKey and event.pressed and not event.echo)):
 		get_viewport().set_input_as_handled()
 		_start_game()
+	elif dialog.is_open and not busy and event is InputEventScreenTouch and event.pressed \
+			and (not touch.visible or event.position.distance_to(touch.a_pos()) > 30):
+		# Text weiterschalten durch Tippen irgendwo auf den Bildschirm
+		get_viewport().set_input_as_handled()
+		dialog.advance()
 
 
 func _process(_delta: float) -> void:
@@ -238,7 +243,7 @@ func _start_battle() -> void:
 	battle.start(party[0], Dex.random_encounter(map_id))
 	fade.modulate.a = 0.0
 	var result: String = await battle.finished
-	touch.visible = DisplayServer.is_touchscreen_available()
+	touch.visible = TouchControls.is_touch_device()
 	if result == "lose":
 		for mon in party:
 			mon["hp"] = mon["max_hp"]

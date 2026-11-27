@@ -15,7 +15,7 @@ func _ready() -> void:
 	layer = 10
 	visible = false
 	var panel := PanelContainer.new()
-	var touch := DisplayServer.is_touchscreen_available()
+	var touch := TouchControls.is_touch_device()
 	panel.anchor_left = 0.0
 	panel.anchor_right = 1.0
 	panel.anchor_top = 1.0

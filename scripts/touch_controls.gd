@@ -12,10 +12,19 @@ var _dir := Vector2i.ZERO
 var _buttons := {} # Touch-Index -> Aktion
 
 
+## Erkennt Touch-Geräte – im Browser über JavaScript, da Godots Erkennung dort nicht immer greift.
+static func is_touch_device() -> bool:
+	if OS.has_feature("web"):
+		var r = JavaScriptBridge.eval("(navigator.maxTouchPoints > 0) || ('ontouchstart' in window)", true)
+		if r:
+			return true
+	return OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
+
+
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	visible = DisplayServer.is_touchscreen_available()
+	visible = is_touch_device()
 	resized.connect(queue_redraw)
 
 
@@ -23,7 +32,7 @@ func _pad_center() -> Vector2:
 	return Vector2(54, size.y - 54)
 
 
-func _a_pos() -> Vector2:
+func a_pos() -> Vector2:
 	return Vector2(size.x - 36, size.y - 62)
 
 
@@ -39,7 +48,7 @@ func _input(event: InputEvent) -> void:
 			if event.position.x < size.x * 0.4 and event.position.y > size.y * 0.35:
 				_pad_touch = event.index
 				_update_pad(event.position)
-			elif event.position.distance_to(_a_pos()) < 28:
+			elif event.position.distance_to(a_pos()) < 28:
 				_press(event.index, "interact")
 			elif event.position.distance_to(_b_pos()) < 24:
 				_press(event.index, "back")
@@ -93,7 +102,7 @@ func _draw() -> void:
 		var base := c + d * 18
 		var col := Color(0.9, 0.3, 0.35, 0.8) if DIRS[action] == _dir else Color(1, 1, 1, 0.35)
 		draw_colored_polygon(PackedVector2Array([tip, base + side, base - side]), col)
-	_button(_a_pos(), 20, "A", "interact")
+	_button(a_pos(), 20, "A", "interact")
 	_button(_b_pos(), 16, "B", "back")
 
 
